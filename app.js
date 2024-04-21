@@ -1,6 +1,9 @@
 require("dotenv").config();
 require("./src/models/users");
 require("./src/models/hashTable");
+require("./src/models/category");
+require("./src/models/project");
+require("./src/models/task");
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -8,6 +11,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 
 const authRoutes = require("./src/routes/authRoutes/auth");
+const taskRoutes = require("./src/routes/taskManagement/taskRoutes");
 
 const app = express();
 
@@ -33,6 +37,7 @@ mongoose.connection.on("error", (err) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/task", taskRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).send({ message: "TodoTrek is online" });

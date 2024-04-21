@@ -6,6 +6,7 @@ const router = express.Router();
 
 const tokenFunction = require("../../security/token");
 const mailer = require("../../utils/mailer");
+const helper = require("../../utils/helperFunctions");
 const requireToken = require("../../middlewares/requireToken");
 
 /*
@@ -15,13 +16,25 @@ const requireToken = require("../../middlewares/requireToken");
 @access   -   public
 */
 router.post("/sign_up", async (req, res) => {
-  const { email, password } = req.body;
+  const { firstName, lastName, email, password } = req.body;
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser)
+    return res.status(409).json({
+      message: "This email already exist. Please login using this email",
+    });
   if (!email || !password)
     return res
       .status(400)
       .json({ message: "Bad Request! email or password should be provided" });
   try {
-    const newUser = new User({ email, password });
+    const newUser = new User({
+      firstName,
+      lastName,
+      email,
+      password,
+      accountType: "LOCAL",
+    });
     await newUser.save();
 
     const user = await User.findOne({ email });
@@ -151,6 +164,7 @@ router.put("/user/reset-password", async (req, res) => {
     const hash = await HashTable.findOne({ hash: tokenHash });
     if (hash) {
       await User.updateOne({ _id: hash.userId }, { password: password });
+      await HashTable.findByIdAndDelete(hash._id);
 
       User.findById(hash.userId).then(async (user) => {
         await mailer.sendChangePasswordConfirmationEmail(user.email);
@@ -159,11 +173,53 @@ router.put("/user/reset-password", async (req, res) => {
     } else {
       return res.status(400).json({
         message:
-          "Something went wrong. Please try again or send a new verification request.",
+          "Something went wrong. Please send a new verification request.",
       });
     }
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+/*
+@type     -   GET
+@route    -   /auth/register/google_account
+@desc     -   Endpoint to register the google account.
+@access   -   public
+*/
+router.post("/register/google_account", async (req, res) => {
+  const { firstName, lastName, email, googleId } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (user) {
+      if (!user.googleId)
+        return res.status(409).json({
+          message:
+            "Please login using the email and password. This account was not signed up using Google",
+        });
+
+      const token = tokenFunction.newAccessToken(user._id);
+      return res.status(200).json({ token });
+    }
+
+    const newUser = new User({
+      firstName,
+      lastName,
+      email,
+      password: helper.randomString(16),
+      isVerified: true,
+      googleId,
+      accountType: "GOOGLE",
+    });
+
+    newUser.save().then((user) => {
+      const token = tokenFunction.newAccessToken(user._id);
+      res.status(200).json({ token });
+    });
+  } catch (error) {
+    console.error("Error:", error.response.data.error);
+    res.status(500).json({ error });
   }
 });
 

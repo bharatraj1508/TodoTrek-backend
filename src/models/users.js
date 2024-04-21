@@ -2,6 +2,14 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema({
+  firstName: {
+    type: String,
+    required: true,
+  },
+  lastName: {
+    type: String,
+    required: true,
+  },
   email: {
     type: String,
     required: true,
@@ -14,6 +22,15 @@ const userSchema = new mongoose.Schema({
   isVerified: {
     type: Boolean,
     default: false,
+  },
+  googleId: {
+    type: String,
+    required: false,
+  },
+  accountType: {
+    type: String,
+    enum: ["LOCAL", "GOOGLE"],
+    default: "LOCAL",
   },
 });
 
