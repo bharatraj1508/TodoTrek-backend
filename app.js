@@ -12,6 +12,8 @@ const cors = require("cors");
 
 const authRoutes = require("./src/routes/authRoutes/auth");
 const taskRoutes = require("./src/routes/taskManagement/taskRoutes");
+const projectRoutes = require("./src/routes/taskManagement/projectRoutes");
+const categoriesRoutes = require("./src/routes/taskManagement/categoryRoutes");
 
 const app = express();
 
@@ -38,6 +40,8 @@ mongoose.connection.on("error", (err) => {
 
 app.use("/auth", authRoutes);
 app.use("/task", taskRoutes);
+app.use("/project", projectRoutes);
+app.use("/category", categoriesRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).send({ message: "TodoTrek is online" });
