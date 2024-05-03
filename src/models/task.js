@@ -11,8 +11,9 @@ const taskSchema = new mongoose.Schema({
   },
   priority: {
     type: Number,
-    enum: [1, 2, 3],
+    enum: [0, 1, 2, 3],
     required: false,
+    default: 0,
   },
   isCompleted: {
     type: Boolean,
@@ -29,16 +30,17 @@ const taskSchema = new mongoose.Schema({
     required: false,
     ref: "Category",
   },
+  projectTask: {
+    type: Boolean,
+    required: false,
+    default: true,
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
     ref: "User",
   },
   createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
     type: Date,
     default: Date.now,
   },
@@ -50,10 +52,10 @@ taskSchema.pre("deleteOne", async function (next) {
   try {
     await mongoose
       .model("Project")
-      .updateMany({}, { $pull: { tasks: { task: taskId } } });
+      .updateMany({}, { $pull: { tasks: taskId } });
     await mongoose
       .model("Category")
-      .updateMany({}, { $pull: { tasks: { task: taskId } } });
+      .updateMany({}, { $pull: { tasks: taskId } });
   } catch (error) {
     next(error);
   }

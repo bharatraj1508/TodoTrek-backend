@@ -25,7 +25,7 @@ module.exports = (Model) => async (req, res, next) => {
       resource = await Model.findById(id);
     }
     if (!resource) {
-      return res.status(404).json({ message: "Project not found" });
+      return res.status(404).json({ message: "Resource not found" });
     }
     if (resource.owner) {
       if (resource.owner.toString() !== userId.toString()) {

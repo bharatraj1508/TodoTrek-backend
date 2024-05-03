@@ -21,20 +21,16 @@ const projectSchema = new mongoose.Schema({
   },
   categories: [
     {
-      category: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: false,
-        ref: "Category",
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      required: false,
+      ref: "Category",
     },
   ],
   tasks: [
     {
-      task: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: false,
-        ref: "Task",
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      required: false,
+      ref: "Task",
     },
   ],
   createdAt: {

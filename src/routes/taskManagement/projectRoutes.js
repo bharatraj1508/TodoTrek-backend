@@ -13,11 +13,18 @@ router.use(requireToken);
 const populateProject = (query) => {
   return query
     .populate("owner", "_id firstName lastName email")
-    .populate("tasks.task")
     .populate({
-      path: "categories.category",
+      path: "tasks",
+      select: "-projectId -owner",
+      options: { sort: { isCompleted: 1, priority: -1 } },
+    })
+    .populate({
+      path: "categories",
+      select: "-project",
       populate: {
-        path: "tasks.task", // Assuming 'name' is the field you want to include. Adjust if the field is different.
+        path: "tasks",
+        select: "-categoryId -owner",
+        options: { sort: { isCompleted: 1, priority: -1 } },
       },
     });
 };
@@ -39,7 +46,7 @@ router.post("/create", async (req, res) => {
     });
     await project.save();
     const savedProject = await populateProject(Project.findById(project._id));
-    res.status(200).json({ project: savedProject });
+    res.status(200).json(savedProject);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -57,7 +64,7 @@ router.get("/user", async (req, res) => {
   const userId = id ? id : req.user._id;
   try {
     const projects = await populateProject(Project.find({ owner: userId }));
-    res.status(200).json({ projects });
+    res.status(200).json(projects);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,7 +87,7 @@ router.get("/:id", async (req, res) => {
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
-    res.status(200).json({ project });
+    res.status(200).json(project);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -111,7 +118,7 @@ router.patch("/:id", verifyProjectOwner(Project), async (req, res) => {
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
-    res.status(200).json({ project });
+    res.status(200).json(project);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -7,11 +7,9 @@ const categorySchema = new mongoose.Schema({
   },
   tasks: [
     {
-      task: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: false,
-        ref: "Task",
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      required: false,
+      ref: "Task",
     },
   ],
   project: {
@@ -35,7 +33,7 @@ categorySchema.pre("deleteOne", async function (next) {
   try {
     await mongoose
       .model("Project")
-      .updateMany({}, { $pull: { categories: { category: categoryId } } });
+      .updateMany({}, { $pull: { categories: categoryId } });
     await mongoose.model("Task").deleteMany({ categoryId: categoryId });
   } catch (error) {
     next(error);

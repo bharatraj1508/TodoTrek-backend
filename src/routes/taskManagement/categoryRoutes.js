@@ -10,7 +10,7 @@ router.use(requireToken);
 
 // Function to populate category data
 const populateCategory = (query) => {
-  return query.populate("tasks.task");
+  return query.populate("tasks", "-categoryId");
 };
 
 /*
@@ -28,15 +28,16 @@ router.post("/create/:pid", verifyOwner(Project), async (req, res) => {
       project: projectId,
     });
     await category.save();
+
     const savedCategory = await populateCategory(
       Category.findById(category._id)
     );
     if (projectId) {
       await Project.findByIdAndUpdate(projectId, {
-        $push: { categories: { category: savedCategory._id } },
+        $push: { categories: savedCategory._id },
       });
     }
-    res.status(200).json({ category: savedCategory });
+    res.status(200).json(savedCategory);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
