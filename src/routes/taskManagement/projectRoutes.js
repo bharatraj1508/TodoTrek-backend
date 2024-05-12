@@ -9,14 +9,21 @@ const router = express.Router();
 
 router.use(requireToken);
 
-// Function to populate project data
-const populateProject = (query) => {
+const sortOptions = {
+  default: {},
+  PRIORITY_DESC: { priority: -1 },
+  PRIORITY_ASC: { priority: 1 },
+  INCOMPLETE_FIRST: { isCompleted: 1, priority: -1 },
+};
+
+const populateProject = (query, sort) => {
   return query
     .populate("owner", "_id firstName lastName email")
     .populate({
       path: "tasks",
       select: "-projectId -owner",
-      options: { sort: { isCompleted: 1, priority: -1 } },
+      match: {},
+      options: { sort: sort ? sortOptions[sort] : sortOptions.default },
     })
     .populate({
       path: "categories",
@@ -24,7 +31,8 @@ const populateProject = (query) => {
       populate: {
         path: "tasks",
         select: "-categoryId -owner",
-        options: { sort: { isCompleted: 1, priority: -1 } },
+        match: {},
+        options: { sort: sort ? sortOptions[sort] : sortOptions.default },
       },
     });
 };
@@ -62,8 +70,17 @@ router.post("/create", async (req, res) => {
 router.get("/user", async (req, res) => {
   const { id } = req.query;
   const userId = id ? id : req.user._id;
+  const { sort } = req.query;
+
+  if (sort && !Object.keys(sortOptions).includes(sort)) {
+    return res.status(400).json({ message: "Invalid sort parameter" });
+  }
+
   try {
-    const projects = await populateProject(Project.find({ owner: userId }));
+    const projects = await populateProject(
+      Project.find({ owner: userId }),
+      sort
+    );
     res.status(200).json(projects);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -82,8 +99,14 @@ router.get("/:id", async (req, res) => {
     return res.status(400).json({ message: "Invalid project ID format" });
   }
 
+  const { sort } = req.query;
+
+  if (sort && !Object.keys(sortOptions).includes(sort)) {
+    return res.status(400).json({ message: "Invalid sort parameter" });
+  }
+
   try {
-    const project = await populateProject(Project.findById(id));
+    const project = await populateProject(Project.findById(id), sort);
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }

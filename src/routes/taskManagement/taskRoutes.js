@@ -9,6 +9,12 @@ const router = express.Router();
 
 router.use(requireToken);
 
+const selectOptions = {
+  COMP: { isCompleted: true },
+  INCOMP: { isCompleted: false },
+  DUE_TODAY: { dueDate: { $lte: new Date() } },
+};
+
 const populateTask = (query) => {
   return query
     .populate("owner", "_id firstName lastName email")
@@ -87,13 +93,16 @@ router.post("/create", async (req, res) => {
 @access   -   private
 */
 router.get("/", async (req, res) => {
-  const { pid, cid, uid } = req.query;
-  const sortBy = req.query.sortBy;
+  const { pid, cid, uid, select } = req.query;
 
   const queryParamsCount = [pid, cid, uid].filter(Boolean).length;
 
   if (queryParamsCount > 1) {
     return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
+  if (select && !Object.keys(selectOptions).includes(select)) {
+    return res.status(400).json({ message: "Invalid select parameter" });
   }
 
   let filter = {};
@@ -102,8 +111,10 @@ router.get("/", async (req, res) => {
   if (uid) filter.owner = uid;
   if (!pid && !cid && !uid) filter.owner = req.user._id;
 
-  let query = Task.find(filter);
-  if (sortBy === "priority") query = query.sort({ priority: -1 });
+  let query = Task.find({
+    ...filter,
+    ...(select ? selectOptions[select] : {}),
+  });
 
   try {
     const tasks = await populateTask(query);
@@ -168,74 +179,72 @@ router.patch("/:id", verifyOwner(Task), async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid task ID format" });
   }
-  const originalTask = await Task.findById(id);
 
-  if (originalTask.isCompleted) {
-    return res
-      .status(403)
-      .json({ message: "Completed task cannot be updated" });
-  }
+  try {
+    const originalTask = await Task.findById(id);
 
-  if (
-    originalTask.projectId &&
-    projectId.toString() !== originalTask.projectId.toString()
-  ) {
-    await Project.findByIdAndUpdate(originalTask.projectId, {
-      $pull: { tasks: id },
-    });
+    if (originalTask.isCompleted) {
+      return res
+        .status(403)
+        .json({ message: "Completed task cannot be updated" });
+    }
 
-    if (categoryId) {
+    if (
+      originalTask.projectId &&
+      projectId.toString() !== originalTask.projectId.toString()
+    ) {
+      await Project.findByIdAndUpdate(originalTask.projectId, {
+        $pull: { tasks: id },
+      });
+
+      if (categoryId) {
+        await Category.findByIdAndUpdate(categoryId, {
+          $push: { tasks: id },
+        });
+      } else if (projectId) {
+        await Project.findByIdAndUpdate(projectId, {
+          $push: { tasks: id },
+        });
+      }
+    }
+
+    if (
+      originalTask.categoryId &&
+      categoryId &&
+      categoryId.toString() !== originalTask.categoryId.toString()
+    ) {
+      await Category.findByIdAndUpdate(originalTask.categoryId, {
+        $pull: { tasks: id },
+      });
+
       await Category.findByIdAndUpdate(categoryId, {
         $push: { tasks: id },
       });
-    } else if (projectId) {
+    }
+
+    if (originalTask.categoryId && !categoryId && projectId) {
+      await Category.findByIdAndUpdate(originalTask.categoryId, {
+        $pull: { tasks: id },
+      });
+
       await Project.findByIdAndUpdate(projectId, {
         $push: { tasks: id },
       });
     }
-    console.log("first condition");
-  }
 
-  if (
-    originalTask.categoryId &&
-    categoryId &&
-    categoryId.toString() !== originalTask.categoryId.toString()
-  ) {
-    await Category.findByIdAndUpdate(originalTask.categoryId, {
-      $pull: { tasks: id },
-    });
+    if (
+      !originalTask.categoryId &&
+      categoryId &&
+      projectId.toString() == originalTask.projectId.toString()
+    ) {
+      await Project.findByIdAndUpdate(originalTask.projectId, {
+        $pull: { tasks: id },
+      });
+      await Category.findByIdAndUpdate(categoryId, {
+        $push: { tasks: id },
+      });
+    }
 
-    await Category.findByIdAndUpdate(categoryId, {
-      $push: { tasks: id },
-    });
-  }
-
-  if (originalTask.categoryId && !categoryId && projectId) {
-    await Category.findByIdAndUpdate(originalTask.categoryId, {
-      $pull: { tasks: id },
-    });
-
-    await Project.findByIdAndUpdate(projectId, {
-      $push: { tasks: id },
-    });
-  }
-
-  if (
-    !originalTask.categoryId &&
-    categoryId &&
-    projectId.toString() == originalTask.projectId.toString()
-  ) {
-    await Project.findByIdAndUpdate(originalTask.projectId, {
-      $pull: { tasks: id },
-    });
-    await Category.findByIdAndUpdate(categoryId, {
-      $push: { tasks: id },
-    });
-
-    console.log("forth condition");
-  }
-
-  try {
     if (categoryId) {
       const update = {
         $set: {

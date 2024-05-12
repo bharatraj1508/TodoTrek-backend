@@ -182,6 +182,65 @@ router.put("/user/reset-password", async (req, res) => {
 });
 
 /*
+@type     -   PATCH
+@route    -   /auth/user/change-password
+@desc     -   Endpoint to update the user password.
+@access   -   private
+*/
+router.patch("/user/change-password", requireToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) return res.status(404).json({ message: "User does not exist" });
+
+  if (!(await user.comparePassword(currentPassword)))
+    return res.status(403).json({ message: "Password is incorrect" });
+
+  await User.updateOne({ _id: user._id }, { password: newPassword });
+  res.status(200).json({ message: "Password updated successfully" });
+});
+
+/*
+@type     -   PATCH
+@route    -   /auth/user/change-email
+@desc     -   Endpoint to update the user email.
+@access   -   private
+*/
+router.patch("/user/change-email", requireToken, async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) return res.status(404).json({ message: "User does not exist" });
+
+  if (!(await user.comparePassword(password)))
+    return res.status(403).json({ message: "Password is incorrect" });
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser)
+    return res.status(409).json({
+      message: "This email already exist. Please use a different email",
+    });
+
+  const mailResponse = await mailer.sendChangeEmailVerification(
+    user._id,
+    email
+  );
+
+  await User.updateOne({ _id: user._id }, { email: email, isVerified: false });
+
+  const updatedUser = await User.findById(user._id);
+
+  res.status(200).json({
+    message:
+      "Email updated successfully. Please verify your new email to activate your account",
+    updatedUser,
+    mailResponse,
+  });
+});
+
+/*
 @type     -   GET
 @route    -   /auth/register/google_account
 @desc     -   Endpoint to register the google account.
